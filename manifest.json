@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "ReviewQ - 네이버 리뷰 자동 작성",
+  "version": "0.1.0",
+  "description": "네이버페이 주문내역의 내 구매 상품 리뷰를 템플릿 조합으로 자동 작성합니다.",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://shopping.naver.com/*",
+    "*://*.shopping.naver.com/*",
+    "*://pay.naver.com/*",
+    "*://*.pay.naver.com/*",
+    "*://smartstore.naver.com/*",
+    "*://*.smartstore.naver.com/*",
+    "*://brand.naver.com/*",
+    "*://*.brand.naver.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "ReviewQ"
+  },
+  "options_page": "src/options/options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "*://shopping.naver.com/*",
+        "*://*.shopping.naver.com/*",
+        "*://pay.naver.com/*",
+        "*://*.pay.naver.com/*",
+        "*://smartstore.naver.com/*",
+        "*://*.smartstore.naver.com/*",
+        "*://brand.naver.com/*",
+        "*://*.brand.naver.com/*"
+      ],
+      "js": [
+        "src/content/loader.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/content/*",
+        "src/content/dom/*",
+        "src/content/actions/*",
+        "src/generator/*",
+        "src/generator/templates/*",
+        "src/shared/*"
+      ],
+      "matches": [
+        "*://shopping.naver.com/*",
+        "*://*.shopping.naver.com/*",
+        "*://pay.naver.com/*",
+        "*://*.pay.naver.com/*",
+        "*://smartstore.naver.com/*",
+        "*://*.smartstore.naver.com/*",
+        "*://brand.naver.com/*",
+        "*://*.brand.naver.com/*"
+      ]
+    }
+  ]
+}

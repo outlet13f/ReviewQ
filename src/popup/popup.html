@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>ReviewQ</title>
+    <link rel="stylesheet" href="../ui/common.css" />
+    <style>
+      body { width: 340px; padding: 14px; }
+      header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+      .actions { display: flex; gap: 6px; margin: 12px 0 10px; }
+      .actions > button { flex: 1; }
+      .meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; }
+      footer { margin-top: 12px; display: flex; gap: 6px; }
+      footer > button { flex: 1; font-size: 11px; padding: 5px 8px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>ReviewQ</h1>
+      <span id="mode-badge" class="badge" role="status" aria-live="polite">확인 중</span>
+    </header>
+
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+    <div class="actions">
+      <button id="start" class="primary" type="button">실행</button>
+      <button id="stop" class="danger" type="button" disabled>중단</button>
+    </div>
+
+    <div class="meta">
+      <span id="phase">대기</span>
+      <span id="progress">0 / 0</span>
+    </div>
+
+    <h2>최근 결과</h2>
+    <ul id="results" class="results">
+      <li>아직 처리한 항목이 없습니다.</li>
+    </ul>
+
+    <footer>
+      <button id="probe" type="button">페이지 진단</button>
+      <button id="options" type="button">설정</button>
+    </footer>
+
+    <pre id="probe-output" hidden></pre>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,116 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  /*
+   * 네이버 브랜드 그린(#03c75a)은 흰 글자와 대비가 2.25:1 로 WCAG AA(4.5:1)에 크게 미달한다.
+   * 같은 색조를 유지하면서 대비를 확보한 값으로 조정했다. tests/contrast.test.js 가 고정한다.
+   */
+  --accent: #01813a;      /* 흰 글자 대비 5.00:1 */
+  --accent-dark: #016b30; /* 흰 글자 / 흰 배경 대비 6.67:1 */
+  --danger: #d92d20;
+  --warn: #b45309;
+  --surface: #f9fafb;
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg);
+  line-height: 1.5;
+}
+
+h1 { font-size: 15px; margin: 0 0 2px; }
+h2 { font-size: 13px; margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+p.hint { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
+
+button {
+  font: inherit;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--fg);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--surface); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--accent-dark); }
+button.danger { border-color: var(--danger); color: var(--danger); }
+
+label { display: block; margin-bottom: 10px; }
+label > span.label-text { display: block; margin-bottom: 4px; font-weight: 600; }
+input[type='text'], input[type='url'], input[type='number'], select {
+  width: 100%;
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--fg);
+}
+/* 라벨 전체가 클릭 타깃이다. WCAG 2.5.8 최소 크기(24px)를 확보한다. */
+label.inline { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+label.inline input[type='checkbox'] { inline-size: 16px; block-size: 16px; }
+label.inline input { width: auto; }
+label.inline span.label-text { margin: 0; }
+
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; }
+
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.badge.dry { border-color: var(--warn); color: var(--warn); }
+.badge.live { border-color: var(--danger); color: var(--danger); }
+
+.notice {
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 11px;
+  color: var(--muted);
+}
+.notice.error { border-color: var(--danger); color: var(--danger); background: #fef3f2; }
+.notice.ok { border-color: var(--accent); color: var(--accent-dark); background: #f0fdf4; }
+
+pre {
+  margin: 8px 0 0;
+  padding: 8px;
+  max-height: 220px;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+ul.results { list-style: none; margin: 8px 0 0; padding: 0; }
+ul.results li {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+ul.results li .status { font-weight: 700; margin-right: 6px; }
+ul.results li .status.SUBMITTED { color: var(--accent-dark); }
+ul.results li .status.DRY_RUN { color: var(--warn); }
+ul.results li .status.FAILED { color: var(--danger); }
+ul.results li .preview { color: var(--muted); display: block; margin-top: 2px; }

@@ -141,3 +141,15 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# --- ReviewQ ---
+# Claude Code / oh-my-claudecode 작업 상태 (프로젝트 코드 아님, 로컬 경로·세션 ID 포함)
+.claude/
+.omc/
+
+# 확장 패킹 산출물 (.pem 은 비공개 서명 키)
+*.crx
+*.pem
+
+# macOS
+.DS_Store
