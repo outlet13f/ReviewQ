@@ -19,20 +19,27 @@ const PHASE_LABEL = Object.freeze({
   [RUN_PHASE.FAILED]: '실패',
 })
 
-const IDLE_VIEW = Object.freeze({
-  isRunning: false,
-  shouldPoll: false,
-  phaseLabel: PHASE_LABEL[RUN_PHASE.IDLE],
-  progressText: '0 / 0',
-  badge: Object.freeze({ text: '드라이런', className: 'badge dry' }),
-  results: Object.freeze([]),
-  notice: null,
-})
-
 const badgeFor = (isDryRun) =>
   isDryRun
     ? Object.freeze({ text: '드라이런', className: 'badge dry' })
     : Object.freeze({ text: '실제 등록', className: 'badge live' })
+
+/**
+ * 실행 기록이 없을 때의 화면.
+ * 배지는 **현재 설정**에서 온다. 여기에 "드라이런"을 하드코딩하면
+ * 드라이런을 끈 사용자에게 "등록되지 않는다"고 거짓 표시하게 된다.
+ */
+const idleView = (settings) =>
+  Object.freeze({
+    isRunning: false,
+    shouldPoll: false,
+    phaseLabel: PHASE_LABEL[RUN_PHASE.IDLE],
+    progressText: '0 / 0',
+    // 설정을 모르면 안전한 쪽(드라이런)으로 표시한다.
+    badge: badgeFor(settings?.dryRun !== false),
+    results: Object.freeze([]),
+    notice: null,
+  })
 
 const noticeFor = (summary) => {
   if (typeof summary.error === 'string' && summary.error !== '') {
@@ -46,10 +53,11 @@ const noticeFor = (summary) => {
 
 /**
  * @param {object|null} summary run-state.summarize() 결과
+ * @param {{dryRun?: boolean}} [settings] 실행 기록이 없을 때 배지를 정할 현재 설정
  * @returns {Readonly<object>} 화면에 그대로 넣을 값들
  */
-export const describeRun = (summary) => {
-  if (!summary) return IDLE_VIEW
+export const describeRun = (summary, settings) => {
+  if (!summary) return idleView(settings)
 
   const isRunning = ACTIVE_PHASES.has(summary.phase)
   const counts = summary.counts ?? { failed: 0 }

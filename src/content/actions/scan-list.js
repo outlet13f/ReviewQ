@@ -7,6 +7,9 @@ import { humanClick } from '../dom/events.js'
 
 const MAX_NAME_LENGTH = 120
 
+/** 어느 페이지에나 있는 일반 컨테이너. 구체적인 셀렉터가 맞으면 이건 쓰지 않는다. */
+const GENERIC_CONTAINER_SELECTORS = new Set(['li', 'tr', 'article', '[role="listitem"]'])
+
 const firstText = (container, selectors) => {
   if (!container) return ''
   const found = findFirstVisible(selectors, container)
@@ -53,9 +56,22 @@ const keyFor = (productName, container, trigger, index) => {
   return `index:${index}`
 }
 
-/** 페이지에 항목 컨테이너가 존재하는지. 존재하면 그 안의 트리거만 인정한다. */
-const hasItemContainers = () =>
-  LIST.itemContainerSelectors.some((selector) => document.querySelector(selector) !== null)
+/**
+ * 이 페이지에서 실제로 쓸 항목 컨테이너 셀렉터를 고른다.
+ *
+ * itemContainerSelectors 끝에는 일반적인 li/tr/article 이 있는데, 네이버 전역 헤더와
+ * 좌측 메뉴도 <ul><li><a> 구조라 이걸 쓰면 네비게이션 링크가 제한을 그대로 통과한다.
+ * 그래서 **구체적인 셀렉터가 하나라도 맞으면 그것만** 쓰고, 일반 셀렉터로는 폴백하지 않는다.
+ */
+const resolveItemContainerSelectors = () => {
+  const specific = LIST.itemContainerSelectors.filter(
+    (selector) => !GENERIC_CONTAINER_SELECTORS.has(selector) && document.querySelector(selector) !== null,
+  )
+  if (specific.length > 0) return specific
+
+  const generic = LIST.itemContainerSelectors.filter((selector) => document.querySelector(selector) !== null)
+  return generic
+}
 
 /**
  * 지금 보고 있는 페이지로 이동하는 링크인지.
@@ -83,11 +99,10 @@ const collectTriggers = () => {
     exclude: LIST.alreadyWrittenTexts,
   }).filter((trigger) => !isSelfLink(trigger))
 
-  if (!hasItemContainers()) return candidates
+  const containers = resolveItemContainerSelectors()
+  if (containers.length === 0) return candidates
 
-  return candidates.filter((trigger) =>
-    LIST.itemContainerSelectors.some((selector) => trigger.closest(selector) !== null),
-  )
+  return candidates.filter((trigger) => containers.some((selector) => trigger.closest(selector) !== null))
 }
 
 /** 트리거에서 항목 정보를 역추적한다. */
@@ -122,13 +137,23 @@ export const scanReviewList = () => {
  * 항목의 작성 폼을 연다. 목록은 리뷰를 쓸 때마다 바뀌므로 매번 다시 훑고
  * key 로 먼저 찾은 뒤 없으면 index 로 폴백한다.
  */
+/**
+ * 항목의 작성 폼을 연다.
+ *
+ * 키가 안 맞을 때 index 로 폴백하면 안 된다. 목록은 등록·더보기 접힘 등으로 수시로 바뀌는데,
+ * 그때 같은 위치는 **다른 상품**을 가리킨다. A 상품용으로 만든 본문이 B 상품 폼에 입력된다.
+ * 키를 못 찾으면 실패로 알리고, 다음 스캔에서 정상적으로 다시 고르게 한다.
+ */
 export const openReviewForm = ({ key, index = 0 }) => {
   const triggers = collectTriggers()
   if (triggers.length === 0) return err('열 수 있는 리뷰 작성 버튼이 없습니다.')
 
   const items = describeItems(triggers)
-  const matchedByKey = key ? items.findIndex((item) => item.key === key) : -1
-  const position = matchedByKey >= 0 ? matchedByKey : index
+  const position = key ? items.findIndex((item) => item.key === key) : index
+
+  if (position < 0) {
+    return err(`목록이 바뀌어 "${key}" 항목을 찾지 못했습니다. 다시 훑어야 합니다.`)
+  }
 
   const trigger = triggers[position]
   if (!trigger) return err(`목록에서 ${position + 1}번째 항목을 찾지 못했습니다.`)

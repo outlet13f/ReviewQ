@@ -39,12 +39,40 @@ export const findSurveyGroups = (root = document) => {
 }
 
 /**
- * 별점(1~5)을 선택지 개수에 맞춰 위치로 환산한다.
- * 선택지는 부정 -> 긍정 순으로 놓여 있다고 본다(실측 3종 모두 그러했다).
+ * 선택지 문구의 성향 사전.
+ *
+ * **위치로 고르면 안 된다.** 같은 페이지의 별점은 5,4,3,2,1 내림차순인데
+ * 설문도 그 관례를 따른다면 "부정->긍정 순" 가정이 정반대가 되어
+ * 5점 리뷰에 "맛없어요" 가 선택된다. 그래서 순서가 아니라 문구의 의미로 고른다.
  */
-const optionIndexFor = (rating, optionCount) => {
-  const ratio = (rating - 1) / (RATING_MAX - 1)
-  return Math.round(ratio * (optionCount - 1))
+const SENTIMENT = Object.freeze({
+  positive: Object.freeze(['맛있', '꼼꼼', '좋아', '만족', '넉넉', '빨라', '우수', '최고', '예뻐', '튼튼', '신선']),
+  neutral: Object.freeze(['평범', '적당', '보통', '무난', '그저', '꽤남']),
+  negative: Object.freeze(['맛없', '별로', '아쉬', '나빠', '부족', '임박', '느려', '불만', '실망']),
+})
+
+/** 별점 -> 원하는 성향. 리뷰 본문 톤과 같은 기준을 쓴다. */
+const sentimentFor = (rating) => {
+  if (rating >= 4) return 'positive'
+  if (rating === 3) return 'neutral'
+  return 'negative'
+}
+
+/** 숫자 근거(value/data-value/aria-label)가 있으면 그것으로 고른다. */
+const pickByNumericValue = (options, rating, optionCount) => {
+  const scaled = Math.round(((rating - 1) / (RATING_MAX - 1)) * (optionCount - 1)) + 1
+  return (
+    options.find((option) => {
+      const raw = option.getAttribute('data-value') ?? option.getAttribute('value')
+      return raw !== null && Number.parseInt(raw, 10) === scaled
+    }) ?? null
+  )
+}
+
+/** 문구의 성향으로 고른다. */
+const pickBySentiment = (options, rating) => {
+  const wanted = SENTIMENT[sentimentFor(rating)]
+  return options.find((option) => wanted.some((word) => textOf(option).includes(word))) ?? null
 }
 
 /**
@@ -59,14 +87,23 @@ export const fillSurveys = (root, rating) => {
   }
 
   const groups = findSurveyGroups(root ?? document)
+
   const answered = groups.reduce((count, group) => {
     const options = optionsOf(group)
-    const target = options[optionIndexFor(value, options.length)]
+    // 숫자 근거 -> 문구 성향 순으로 시도한다. 둘 다 없으면 **고르지 않는다**.
+    const target = pickByNumericValue(options, value, options.length) ?? pickBySentiment(options, value)
     if (!target) return count
 
     humanClick(target)
     return count + 1
   }, 0)
 
-  return ok(Object.freeze({ answered, total: groups.length, labels: groups.map((g) => textOf(g).slice(0, 30)) }))
+  return ok(
+    Object.freeze({
+      answered,
+      /** 근거가 없어 건너뛴 설문. 등록 버튼이 비활성으로 남는 원인이 될 수 있다. */
+      skipped: groups.length - answered,
+      total: groups.length,
+    }),
+  )
 }

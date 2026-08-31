@@ -25,6 +25,38 @@ const summaryOf = (overrides = {}) => ({
   ...overrides,
 })
 
+describe('describeRun — 실행 기록이 없을 때의 배지', () => {
+  /*
+   * 실행 기록이 없으면 배지를 현재 설정에서 읽어야 한다.
+   * IDLE 뷰가 "드라이런"을 하드코딩하면, 드라이런을 끈 사용자에게
+   * "등록되지 않는다"고 거짓 표시하게 된다. 안전에 직결되는 표시다.
+   */
+  test('드라이런이 꺼져 있으면 실제 등록으로 표시한다', () => {
+    const view = describeRun(null, { dryRun: false })
+
+    expect(view.badge.text).toBe('실제 등록')
+    expect(view.badge.className).toContain('live')
+  })
+
+  test('드라이런이 켜져 있으면 드라이런으로 표시한다', () => {
+    const view = describeRun(null, { dryRun: true })
+
+    expect(view.badge.text).toBe('드라이런')
+    expect(view.badge.className).toContain('dry')
+  })
+
+  test('설정을 모르면 안전한 쪽(드라이런)으로 표시한다', () => {
+    expect(describeRun(null).badge.text).toBe('드라이런')
+  })
+
+  test('실행 기록이 있으면 그 실행의 모드를 따른다', () => {
+    // 실행 중에는 그 실행이 어떤 모드로 시작됐는지가 진실이다.
+    const view = describeRun(summaryOf({ dryRun: false }), { dryRun: true })
+
+    expect(view.badge.text).toBe('실제 등록')
+  })
+})
+
 describe('describeRun — 실행 중이 아닐 때', () => {
   test('실행 기록이 없으면 대기 상태로 보여준다', () => {
     const view = describeRun(null)

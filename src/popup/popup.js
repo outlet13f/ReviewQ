@@ -76,6 +76,22 @@ const applyView = (view) => {
   else stopPolling()
 }
 
+/**
+ * 현재 설정을 읽는다.
+ * 실행 기록이 없을 때 배지를 정하는 데 쓰인다. 실패하면 사용자에게 알리고
+ * null 을 돌려줘 안전한 쪽(드라이런)으로 표시되게 한다.
+ */
+const readSettings = async () => {
+  try {
+    const stored = await chrome.storage.local.get(STORAGE_KEY.SETTINGS)
+    return mergeSettings(stored[STORAGE_KEY.SETTINGS])
+  } catch (cause) {
+    const reason = cause instanceof Error ? cause.message : String(cause)
+    showNotice(nodes.notice, `설정을 읽지 못했습니다: ${reason}`, 'error')
+    return null
+  }
+}
+
 async function refresh() {
   const status = await sendToBackground(MSG.RUN_STATUS)
   if (!status.ok) {
@@ -83,24 +99,11 @@ async function refresh() {
     stopPolling()
     return
   }
-  applyView(describeRun(status.value))
-}
-
-/**
- * 실행 기록이 없을 때 보여줄 배지는 현재 설정에서 읽는다.
- * 저장소 접근이 실패해도 화면이 조용히 비어 버리지 않도록 명시적으로 알린다.
- */
-const showCurrentMode = async () => {
-  try {
-    const stored = await chrome.storage.local.get(STORAGE_KEY.SETTINGS)
-    const view = describeRun(null)
-    const isDryRun = mergeSettings(stored[STORAGE_KEY.SETTINGS]).dryRun
-    nodes.badge.textContent = isDryRun ? view.badge.text : '실제 등록'
-    nodes.badge.className = isDryRun ? 'badge dry' : 'badge live'
-  } catch (cause) {
-    const reason = cause instanceof Error ? cause.message : String(cause)
-    showNotice(nodes.notice, `설정을 읽지 못했습니다: ${reason}`, 'error')
-  }
+  // 실행 기록이 없으면 배지를 현재 설정에서 정해야 한다.
+  // 예전에는 showCurrentMode() 로 배지를 세팅한 뒤 refresh() 가 곧바로 덮어써서,
+  // 실제 등록 모드인데 "드라이런"으로 표시되는 치명적 오표시가 있었다.
+  const settings = status.value ? null : await readSettings()
+  applyView(describeRun(status.value, settings))
 }
 
 nodes.start.addEventListener('click', async () => {
@@ -136,5 +139,4 @@ nodes.options.addEventListener('click', () => chrome.runtime.openOptionsPage())
 
 window.addEventListener('unload', stopPolling)
 
-await showCurrentMode()
 await refresh()

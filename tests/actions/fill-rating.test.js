@@ -53,14 +53,26 @@ describe('setRating - 라디오 인풋', () => {
     expect(document.querySelector('input[name="ratingStar"][value="3"]').checked).toBe(true)
   })
 
-  test('value 가 없으면 순서로 고른다', () => {
+  test('value 도 라벨도 없으면 위치로 찍지 않는다', () => {
+    // 네이버는 별점을 5,4,3,2,1 내림차순으로 렌더한다.
+    // 순서를 알 수 없는데 위치로 고르면 정반대 점수가 등록된다.
     document.body.innerHTML = `<div>${[1, 2, 3, 4, 5]
       .map((score) => `<input type="radio" id="s${score}" name="ratingNoValue" />`)
       .join('')}</div>`
 
     setRating(document.body, 2)
 
-    expect(document.getElementById('s2').checked).toBe(true)
+    expect(document.querySelectorAll('input:checked')).toHaveLength(0)
+  })
+
+  test('연결된 label 에 "N점" 이 있으면 그것으로 고른다', () => {
+    document.body.innerHTML = `<div>${[1, 2, 3, 4, 5]
+      .map((score) => `<input type="radio" id="lb${score}" name="ratingLabelled" /><label for="lb${score}">${score}점</label>`)
+      .join('')}</div>`
+
+    setRating(document.body, 2)
+
+    expect(document.getElementById('lb2').checked).toBe(true)
   })
 
   test('change 이벤트를 발생시켜 프레임워크가 값을 인식하게 한다', () => {
@@ -76,8 +88,9 @@ describe('setRating - 라디오 인풋', () => {
 
 describe('setRating - role=radio 위젯', () => {
   test('radiogroup 의 N번째 항목을 클릭한다', () => {
+    // 점수 근거(텍스트)가 있어야 고른다. 근거 없이 위치로 찍지 않는다.
     document.body.innerHTML = `<div role="radiogroup" aria-label="별점">${[1, 2, 3, 4, 5]
-      .map((score) => `<span role="radio" aria-checked="false" id="rr${score}">★</span>`)
+      .map((score) => `<span role="radio" aria-checked="false" id="rr${score}">${score}</span>`)
       .join('')}</div>`
     const handler = vi.fn()
     document.getElementById('rr4').addEventListener('click', handler)
@@ -90,7 +103,7 @@ describe('setRating - role=radio 위젯', () => {
 
   test('aria-checked 가 true 면 검증됨으로 표시한다', () => {
     document.body.innerHTML = `<div role="radiogroup">${[1, 2, 3, 4, 5]
-      .map((score) => `<span role="radio" aria-checked="${score === 3}" id="rc${score}">★</span>`)
+      .map((score) => `<span role="radio" aria-checked="${score === 3}" id="rc${score}">${score}</span>`)
       .join('')}</div>`
 
     const result = setRating(document.body, 3)
@@ -115,17 +128,31 @@ describe('setRating - "N점" 라벨', () => {
 })
 
 describe('setRating - 별 아이콘 묶음', () => {
-  test('자식이 5개인 컨테이너의 N번째를 클릭한다', () => {
+  test('점수 라벨이 있는 별 아이콘을 클릭한다', () => {
     document.body.innerHTML = `<div class="starRating">${[1, 2, 3, 4, 5]
-      .map((score) => `<a href="#" id="st${score}"></a>`)
+      .map((score) => `<a href="#" id="st${score}" aria-label="${score}점"></a>`)
       .join('')}</div>`
     const handler = vi.fn()
     document.getElementById('st5').addEventListener('click', handler)
 
     const result = setRating(document.body, 5)
 
-    expect(result.value.strategy).toBe('star-container')
+    // aria-label 근거가 있으면 더 앞선 전략(rating-label)이 잡을 수도 있다.
+    expect(['star-container', 'rating-label']).toContain(result.value.strategy)
     expect(handler).toHaveBeenCalled()
+  })
+
+  test('점수 근거가 없는 별 아이콘은 클릭하지 않는다', () => {
+    document.body.innerHTML = `<div class="starRating">${[1, 2, 3, 4, 5]
+      .map((score) => `<a href="#" id="sx${score}"></a>`)
+      .join('')}</div>`
+    const handler = vi.fn()
+    for (const star of document.querySelectorAll('a')) star.addEventListener('click', handler)
+
+    const result = setRating(document.body, 5)
+
+    expect(result.ok).toBe(false)
+    expect(handler).not.toHaveBeenCalled()
   })
 
   test('자식이 5개가 아닌 컨테이너는 건너뛴다', () => {

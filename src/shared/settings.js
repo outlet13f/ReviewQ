@@ -43,13 +43,20 @@ const clampInt = (value, min, max, fallback) => {
   return Math.min(max, Math.max(min, parsed))
 }
 
-const normalizeRange = (value, fallback) => {
+/**
+ * [min, max] 를 0 ~ limit 안으로 클램프한다.
+ * 상한이 없으면 구버전이 남긴 값이나 손상된 저장소가 그대로 통과해
+ * 수십 시간짜리 대기에 갇히고 원인을 관찰할 방법이 없다.
+ */
+const normalizeRange = (value, fallback, limit) => {
   if (!Array.isArray(value) || value.length !== 2) return fallback
   const min = Number.parseInt(value[0], 10)
   const max = Number.parseInt(value[1], 10)
   if (!Number.isFinite(min) || !Number.isFinite(max)) return fallback
-  const lo = Math.max(0, Math.min(min, max))
-  const hi = Math.max(lo, Math.max(min, max))
+
+  const clamp = (n) => Math.min(limit, Math.max(0, n))
+  const lo = clamp(Math.min(min, max))
+  const hi = Math.max(lo, clamp(Math.max(min, max)))
   return Object.freeze([lo, hi])
 }
 
@@ -91,9 +98,13 @@ export const mergeSettings = (stored) => {
     answerSurveys:
       typeof raw.answerSurveys === 'boolean' ? raw.answerSurveys : DEFAULT_SETTINGS.answerSurveys,
     delayMs: Object.freeze({
-      typingChar: normalizeRange(delay.typingChar, DEFAULT_SETTINGS.delayMs.typingChar),
-      afterFill: normalizeRange(delay.afterFill, DEFAULT_SETTINGS.delayMs.afterFill),
-      betweenItems: normalizeRange(delay.betweenItems, DEFAULT_SETTINGS.delayMs.betweenItems),
+      typingChar: normalizeRange(delay.typingChar, DEFAULT_SETTINGS.delayMs.typingChar, LIMITS.MAX_TYPING_DELAY_MS),
+      afterFill: normalizeRange(delay.afterFill, DEFAULT_SETTINGS.delayMs.afterFill, LIMITS.MAX_AFTER_FILL_MS),
+      betweenItems: normalizeRange(
+        delay.betweenItems,
+        DEFAULT_SETTINGS.delayMs.betweenItems,
+        LIMITS.MAX_BETWEEN_ITEMS_MS,
+      ),
     }),
     stopOnConsecutiveFailures: clampInt(raw.stopOnConsecutiveFailures, 1, 50, DEFAULT_SETTINGS.stopOnConsecutiveFailures),
     similarityThreshold: Number.isFinite(Number(raw.similarityThreshold))
@@ -133,6 +144,9 @@ export const validateSettings = (raw) => {
   }
   if (!isRangeWithin(delay.betweenItems, LIMITS.MAX_BETWEEN_ITEMS_MS)) {
     problems.push(`건 사이 대기는 0 ~ ${LIMITS.MAX_BETWEEN_ITEMS_MS}ms 사이여야 합니다.`)
+  }
+  if (!isRangeWithin(delay.afterFill, LIMITS.MAX_AFTER_FILL_MS)) {
+    problems.push(`입력 후 대기는 0 ~ ${LIMITS.MAX_AFTER_FILL_MS}ms 사이여야 합니다.`)
   }
 
   if (problems.length > 0) return err(problems.join('\n'))

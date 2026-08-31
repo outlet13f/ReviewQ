@@ -67,17 +67,25 @@ describe('withItemResult', () => {
     expect(state.consecutiveFailures).toBe(0)
   })
 
-  test('실패한 키의 횟수를 센다', () => {
+  test('실패한 키의 잔존 횟수를 센다', () => {
     let state = withItemResult(baseState(), failed('a'))
     state = withItemResult(state, failed('a'))
 
-    expect(state.failureCounts).toEqual({ a: 2 })
+    expect(state.retainedCounts).toEqual({ a: 2 })
   })
 
-  test('성공은 실패 횟수에 포함되지 않는다', () => {
+  test('드라이런도 잔존 횟수에 포함된다', () => {
+    // 드라이런은 등록하지 않으므로 항목이 목록에 그대로 남는다.
+    const state = withItemResult(baseState(), { key: 'a', status: ITEM_STATUS.DRY_RUN, text: 'x' })
+
+    expect(state.retainedCounts).toEqual({ a: 1 })
+  })
+
+  test('등록 성공은 잔존 횟수에 포함되지 않는다', () => {
+    // 성공한 항목만 네이버 목록에서 사라진다.
     const state = withItemResult(baseState(), submitted('a'))
 
-    expect(state.failureCounts).toEqual({})
+    expect(state.retainedCounts).toEqual({})
   })
 
   test('생성된 본문을 중복 회피용으로 쌓는다', () => {
@@ -152,11 +160,17 @@ describe('nextPendingItem', () => {
     expect(nextPendingItem(baseState(), items).key).toBe('a')
   })
 
-  test('성공한 항목은 목록에서 사라지므로 건너뛰지 않는다', () => {
+  test('등록 성공한 항목은 목록에서 사라지므로 건너뛰지 않는다', () => {
     // 성공 뒤 목록에 남아 있다면 그것은 사라지지 않은 다른 구매 건이다.
     const state = withItemResult(baseState(), submitted('a'))
 
     expect(nextPendingItem(state, items).key).toBe('a')
+  })
+
+  test('드라이런한 항목은 목록에 남으므로 다음 항목으로 넘어간다', () => {
+    const state = withItemResult(baseState(), { key: 'a', status: ITEM_STATUS.DRY_RUN, text: 'x' })
+
+    expect(nextPendingItem(state, items).key).toBe('b')
   })
 
   test('실패한 항목은 다시 시도하지 않는다', () => {

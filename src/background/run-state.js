@@ -21,8 +21,11 @@ export const createRunState = ({ runId, settings, startedAt, recentTexts = [] })
     stopRequested: false,
     consecutiveFailures: 0,
     counts: emptyCounts(),
-    /** 키별 실패 횟수. 성공은 목록에서 사라지므로 추적하지 않는다. */
-    failureCounts: Object.freeze({}),
+    /**
+     * 키별로 "시도했지만 항목이 목록에 그대로 남은" 횟수.
+     * 등록에 성공한 항목만 네이버 목록에서 사라진다. 드라이런과 실패는 남는다.
+     */
+    retainedCounts: Object.freeze({}),
     results: Object.freeze([]),
     recentTexts: Object.freeze(recentTexts.slice(0, RECENT_TEXTS_CAP)),
     error: null,
@@ -57,6 +60,7 @@ const bumpCount = (counts, status) => {
  */
 export const withItemResult = (state, result) => {
   const isFailure = result.status === ITEM_STATUS.FAILED
+  const isRetained = result.status !== ITEM_STATUS.SUBMITTED
   const entry = Object.freeze({
     key: result.key,
     productName: result.productName ?? '',
@@ -77,9 +81,11 @@ export const withItemResult = (state, result) => {
     ...state,
     counts: bumpCount(state.counts, result.status),
     consecutiveFailures: isFailure ? state.consecutiveFailures + 1 : 0,
-    failureCounts: isFailure
-      ? Object.freeze({ ...state.failureCounts, [result.key]: (state.failureCounts[result.key] ?? 0) + 1 })
-      : state.failureCounts,
+    // 등록 성공만 목록에서 사라진다. 그 외(드라이런·실패·건너뜀)는 항목이 남으므로
+    // 다음 스캔에서 같은 항목을 다시 집지 않도록 센다.
+    retainedCounts: isRetained
+      ? Object.freeze({ ...state.retainedCounts, [result.key]: (state.retainedCounts[result.key] ?? 0) + 1 })
+      : state.retainedCounts,
     results: prependCapped(state.results, entry, RESULTS_CAP),
     recentTexts: nextRecent,
   })
@@ -113,14 +119,17 @@ export const shouldStop = (state) => {
 /**
  * 다음에 처리할 항목을 고른다.
  *
- * 성공한 항목은 네이버 목록에서 사라지므로 따로 추적하지 않는다.
+ * 등록에 **성공한** 항목만 네이버 목록에서 사라진다. 드라이런과 실패는 목록에 남는다.
  * 같은 상품을 여러 번 구매하면 항목들의 키가 같으므로(DOM 에 항목 고유 ID 없음),
- * 키가 같은 것 중 **실패한 횟수만큼만** 앞에서 건너뛴다.
- * 그래야 3개 중 1개가 실패해도 나머지 2개를 계속 처리할 수 있다.
+ * 키가 같은 것 중 **목록에 남은 채로 시도된 횟수만큼** 앞에서 건너뛴다.
+ *
+ * 이렇게 해야
+ *  - 드라이런이 1번 항목만 반복하지 않고 목록 전체를 미리볼 수 있고
+ *  - 같은 상품 3개 중 1개가 실패해도 나머지 2개를 계속 처리할 수 있다.
  *
  * 알려진 한계: 등록에 성공했는데도 목록이 갱신되지 않으면(서버 반영 지연) 같은 건을
  * 다시 시도할 수 있다. 다만 네이버가 중복 리뷰를 거부하므로 그 시도는 실패로 기록되고,
- * 실패 횟수가 늘어 다음부터는 건너뛴다. 즉 스스로 교정된다.
+ * 남은 횟수가 늘어 다음부터는 건너뛴다. 즉 스스로 교정된다.
  * 그래도 maxItemsPerRun 을 낮게 유지하는 편이 안전하다.
  */
 export const nextPendingItem = (state, items) => {
@@ -130,7 +139,7 @@ export const nextPendingItem = (state, items) => {
   for (const item of items) {
     const occurrence = seen.get(item.key) ?? 0
     seen.set(item.key, occurrence + 1)
-    if (occurrence >= (state.failureCounts[item.key] ?? 0)) return item
+    if (occurrence >= (state.retainedCounts[item.key] ?? 0)) return item
   }
   return null
 }

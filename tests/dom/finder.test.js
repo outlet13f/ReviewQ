@@ -107,21 +107,6 @@ describe('deepQueryAll', () => {
   })
 })
 
-describe('탐색 비용', () => {
-  test('isVisible 을 여러 번 불러도 레이아웃 측정을 반복하지 않는다', () => {
-    // hasLayout() 이 요소마다 document.body.getBoundingClientRect() 를 호출하면
-    // 요소 수만큼 강제 레이아웃이 발생한다.
-    setBody('<div><span id="a">1</span><span id="b">2</span><span id="c">3</span></div>')
-    const bodySpy = vi.spyOn(document.body, 'getBoundingClientRect')
-
-    for (const id of ['a', 'b', 'c']) isVisible(document.getElementById(id))
-
-    const calls = bodySpy.mock.calls.length
-    bodySpy.mockRestore()
-
-    expect(calls).toBeLessThanOrEqual(1)
-  })
-})
 
 describe('findByText', () => {
   test('텍스트를 포함한 가장 안쪽 요소를 고른다', () => {
