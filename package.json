@@ -1,0 +1,23 @@
+{
+  "name": "reviewq",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "네이버 스토어 내 구매 상품 리뷰 작성 자동화 크롬 확장",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint:manifest": "node scripts/validate-manifest.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^10.9.1",
+    "globals": "^17.11.0",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.8"
+  }
+}
