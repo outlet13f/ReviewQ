@@ -48,14 +48,20 @@ export const createOrchestrator = (deps) => {
     const tab = await messaging.openReviewListTab(settings.reviewListUrl)
     if (!tab.ok) return failRun(initial, `리뷰 목록 페이지를 열지 못했습니다: ${tab.error}`)
 
+    // 예외가 나도 그때까지 처리한 내역을 잃지 않도록 최신 상태를 붙잡아 둔다.
+    // initial 을 저장해 버리면 이미 등록한 리뷰의 기록이 통째로 사라진다.
+    let latest = withPhase(initial, RUN_PHASE.SCANNING)
+
     try {
-      const finished = await runLoop(tab.value, withPhase(initial, RUN_PHASE.SCANNING))
+      const finished = await runLoop(tab.value, latest, (state) => {
+        latest = state
+      })
       await persistRunState(store, log, finished)
       return ok(summarize(finished))
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : String(cause)
       log.error('실행 중 예외', cause)
-      return failRun(initial, `실행 중 예외가 발생했습니다: ${reason}`)
+      return failRun(latest, `실행 중 예외가 발생했습니다: ${reason}`)
     }
   }
 

@@ -53,6 +53,21 @@ describe('mergeSettings', () => {
     expect(mergeSettings({ dryRun: false }).dryRun).toBe(false)
   })
 
+  test('런타임 로드 경로도 지연 상한을 클램프한다', () => {
+    // 구버전 설정이나 손상된 저장소가 그대로 통과하면 수십 시간짜리 대기에 갇힌다.
+    const merged = mergeSettings({
+      delayMs: {
+        typingChar: [5000, 9000],
+        betweenItems: [10000000, 10000000],
+        afterFill: [99999999, 99999999],
+      },
+    })
+
+    expect(merged.delayMs.typingChar[1]).toBeLessThanOrEqual(500)
+    expect(merged.delayMs.betweenItems[1]).toBeLessThanOrEqual(120000)
+    expect(merged.delayMs.afterFill[1]).toBeLessThanOrEqual(10000)
+  })
+
   test('반환값은 변경할 수 없다', () => {
     const merged = mergeSettings({})
 
@@ -109,6 +124,16 @@ describe('validateSettings', () => {
 
     expect(result.ok).toBe(false)
     expect(result.error).toContain('건 사이 대기')
+  })
+
+  test('입력 후 대기가 허용 범위를 넘으면 실패한다', () => {
+    const result = validateSettings({
+      ...DEFAULT_SETTINGS,
+      delayMs: { ...DEFAULT_SETTINGS.delayMs, afterFill: [0, 999999] },
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain('입력 후 대기')
   })
 
   test('지연 값이 음수면 실패한다', () => {

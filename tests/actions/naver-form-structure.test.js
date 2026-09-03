@@ -18,6 +18,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { setRating } from '../../src/content/actions/fill-rating.js'
 import { findTextInput } from '../../src/content/actions/fill-text.js'
 import { findSubmitButton } from '../../src/content/actions/submit.js'
+import { fillSurveys } from '../../src/content/actions/fill-survey.js'
 
 /** 별점은 5 -> 1 내림차순으로 렌더된다. */
 const ratingGroup = () => `
@@ -110,6 +111,97 @@ describe('실제 리뷰 폼 — 별점', () => {
     setRating(document.body, 4)
 
     expect(clickedScore()).toBe('4')
+  })
+})
+
+describe('별점 — 라디오 인풋 전략의 순서 가정', () => {
+  /** value 가 점수와 무관한 라디오. 네이버처럼 5->1 내림차순으로 렌더된다. */
+  const nonNumericRadios = () => {
+    document.body.innerHTML = `
+      <div class="starRating">
+        ${[5, 4, 3, 2, 1]
+          .map((score) => `<input type="radio" name="reviewRating" value="STAR_${score}" data-score="${score}" />`)
+          .join('')}
+      </div>`
+    for (const radio of document.querySelectorAll('[data-score]')) {
+      radio.addEventListener('click', () => radio.setAttribute('data-clicked', 'true'))
+    }
+  }
+  const clicked = () => document.querySelector('[data-score][data-clicked="true"]')?.getAttribute('data-score') ?? null
+
+  test('value 가 점수와 다르면 위치가 아니라 라벨로 고른다', () => {
+    // 위치로 고르면 5점 요청에 마지막 요소(1점)가 눌린다.
+    nonNumericRadios()
+    for (const radio of document.querySelectorAll('[data-score]')) {
+      radio.setAttribute('aria-label', `${radio.dataset.score}점`)
+    }
+
+    setRating(document.body, 5)
+
+    expect(clicked()).toBe('5')
+  })
+
+  test('순서를 알 수 없으면 클릭하지 않고 다음 전략으로 넘긴다', () => {
+    // 점수를 특정할 근거가 전혀 없는데 위치로 찍으면 정반대가 등록될 수 있다.
+    nonNumericRadios()
+
+    setRating(document.body, 5)
+
+    expect(clicked()).toBeNull()
+  })
+})
+
+describe('설문 — 선택지 순서 검증', () => {
+  test('순서가 뒤집혀 있어도 문구 의미로 올바른 선택지를 고른다', () => {
+    // 별점처럼 긍정이 먼저 오는 배치. 위치로 고르면 5점에 "맛없어요" 가 선택된다.
+    document.body.innerHTML = `
+      <div class="evaluation_grade_rating" role="radiogroup">
+        <a role="radio" aria-checked="false" data-label="맛있어요">맛있어요</a>
+        <a role="radio" aria-checked="false" data-label="평범해요">평범해요</a>
+        <a role="radio" aria-checked="false" data-label="맛없어요">맛없어요</a>
+      </div>`
+    for (const option of document.querySelectorAll('[role="radio"]')) {
+      option.addEventListener('click', () => option.setAttribute('data-clicked', 'true'))
+    }
+
+    fillSurveys(document.body, 5)
+
+    expect(document.querySelector('[data-clicked="true"]').textContent).toBe('맛있어요')
+  })
+
+  test('뜻을 알 수 없는 선택지는 추측하지 않고 건너뛴다', () => {
+    document.body.innerHTML = `
+      <div class="evaluation_grade_rating" role="radiogroup">
+        <a role="radio" aria-checked="false">가</a>
+        <a role="radio" aria-checked="false">나</a>
+        <a role="radio" aria-checked="false">다</a>
+      </div>`
+    const clickSpy = vi.fn()
+    for (const option of document.querySelectorAll('[role="radio"]')) {
+      option.addEventListener('click', clickSpy)
+    }
+
+    const result = fillSurveys(document.body, 5)
+
+    expect(result.value.answered).toBe(0)
+    expect(result.value.skipped).toBe(1)
+    expect(clickSpy).not.toHaveBeenCalled()
+  })
+
+  test('선택지에 순서 근거(data-score)가 있으면 고른다', () => {
+    document.body.innerHTML = `
+      <div class="evaluation_grade_rating" role="radiogroup">
+        ${['맛없어요', '평범해요', '맛있어요']
+          .map((label, index) => `<a role="radio" aria-checked="false" data-value="${index + 1}" data-option="${index}">${label}</a>`)
+          .join('')}
+      </div>`
+    for (const option of document.querySelectorAll('[data-option]')) {
+      option.addEventListener('click', () => option.setAttribute('data-clicked', 'true'))
+    }
+
+    fillSurveys(document.body, 5)
+
+    expect(document.querySelector('[data-clicked="true"]').textContent).toBe('맛있어요')
   })
 })
 

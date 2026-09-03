@@ -12,12 +12,23 @@ const CLICKABLE_SELECTOR = 'button, a, [role="button"], [role="link"], input[typ
  */
 let layoutSupport = null
 
+/**
+ * 양성(레이아웃 있음)일 때만 캐시한다.
+ *
+ * false 를 캐시하면 위험하다. 콘텐츠 스크립트가 폼 팝업 창에 주입되는 시점에는
+ * body 가 아직 0x0 으로 측정될 수 있는데, 그때 false 로 굳으면 그 창이 살아 있는 동안
+ * 크기 0인 요소가 전부 "보임" 으로 통과해 화면 밖 컨트롤을 채우고 클릭하게 된다.
+ */
 const hasLayout = () => {
-  if (layoutSupport !== null) return layoutSupport
-  if (typeof document === 'undefined' || !document.body) return false // 아직 확정하지 않는다
+  if (layoutSupport === true) return true
+  if (typeof document === 'undefined' || !document.body) return false
+
   const rect = document.body.getBoundingClientRect()
-  layoutSupport = rect.width > 0 || rect.height > 0
-  return layoutSupport
+  if (rect.width > 0 || rect.height > 0) {
+    layoutSupport = true
+    return true
+  }
+  return false
 }
 
 export const isVisible = (element) => {

@@ -62,11 +62,23 @@ export const LIMITS = Object.freeze({
    * 정상 최대 간격(건 사이 대기 120초 + 항목 처리)보다 넉넉히 크게 잡는다.
    */
   STALE_RUN_MS: 300000,
-  /** 폼 입력 대기 상한. 설정을 잘못 잡아도 실행이 무한정 붙잡히지 않게 한다. */
-  MAX_FILL_TIMEOUT_MS: 180000,
-  /** 글자당 입력 지연 상한. 넘으면 한 건 입력이 폼 대기 상한을 넘긴다. */
+  /** 글자당 입력 지연 상한. */
   MAX_TYPING_DELAY_MS: 500,
   /** 항목 사이 대기 상한. */
   MAX_BETWEEN_ITEMS_MS: 120000,
+  /** 입력 후 대기 상한. */
+  MAX_AFTER_FILL_MS: 10000,
   SIMILARITY_THRESHOLD: 0.72,
 })
+
+/**
+ * 폼 입력 대기 상한.
+ *
+ * 검증기가 허용하는 **최악의 조합**(최대 글자 수 x 최대 글자 지연)을 담을 수 있어야 한다.
+ * 상수를 따로 두면 "검증기는 통과시키는데 타임아웃은 못 기다리는" 모순이 생기고,
+ * background 가 타이핑 도중 항목을 실패 처리하며 폼 창을 닫아 버린다.
+ */
+export const MAX_FILL_TIMEOUT_MS =
+  LIMITS.CONTENT_READY_TIMEOUT_MS +
+  LIMITS.MAX_REVIEW_LENGTH * LIMITS.MAX_TYPING_DELAY_MS +
+  LIMITS.DEFAULT_TIMEOUT_MS

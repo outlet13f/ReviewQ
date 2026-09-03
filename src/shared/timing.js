@@ -7,7 +7,7 @@
  * 항목이 실패로 기록되고 탭이 목록으로 이동해 그때까지의 입력이 버려진다.
  */
 
-import { LIMITS } from './constants.js'
+import { LIMITS, MAX_FILL_TIMEOUT_MS } from './constants.js'
 
 /** 최악의 경우를 잡기 위해 지연 범위의 상한을 쓴다. */
 const upperDelay = (range) => (Array.isArray(range) && range.length === 2 ? Math.max(range[0], range[1]) : 0)
@@ -35,5 +35,5 @@ export const fillFormTimeoutMs = ({ textLength, settings }) => {
     estimateTypingMs({ textLength, settings }) + // 본문 입력
     LIMITS.DEFAULT_TIMEOUT_MS // 별점 클릭·왕복 등 여유분
 
-  return Math.round(Math.min(budget, LIMITS.MAX_FILL_TIMEOUT_MS))
+  return Math.round(Math.min(budget, MAX_FILL_TIMEOUT_MS))
 }

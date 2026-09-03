@@ -126,7 +126,10 @@ const toWire = (result) =>
   result?.ok ? { ok: true, value: result.value } : { ok: false, error: result?.error ?? '알 수 없는 오류' }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  const handler = HANDLERS[message?.type]
+  // 자체 속성만 본다. 'toString' 같은 프로토타입 멤버가 핸들러로 잡히면
+  // 문자열에 .then 을 부르다 예외가 나고, 응답 없이 채널이 닫힌다.
+  const type = message?.type
+  const handler = typeof type === 'string' && Object.hasOwn(HANDLERS, type) ? HANDLERS[type] : null
   if (!handler) return false
 
   handler(message.payload)

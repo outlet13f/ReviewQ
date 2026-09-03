@@ -26,6 +26,7 @@ const createFakeMessaging = ({
   onSubmit = null,
   formTabFailure = null,
   registrationFailure = null,
+  listTabUrl = 'https://shopping.naver.com/my/writable-reviews',
 }) => {
   let remaining = items.map((item) => ({ ...item }))
   let openedKey = null
@@ -43,7 +44,7 @@ const createFakeMessaging = ({
         url:
           id === FORM_TAB_ID
             ? `https://shopping.naver.com/popup/reviews/form?orderNo=1&productOrderNos=${openedKey ?? 'x'}`
-            : 'https://shopping.naver.com/my/writable-reviews',
+            : listTabUrl,
       }),
     ),
     watchRegistration: vi.fn(() => ({
@@ -74,7 +75,9 @@ const createFakeMessaging = ({
       if (type === MSG.FILL_FORM) return ok({ rating: { strategy: 'radio-input' }, text: { length: 50 } })
       if (type === MSG.SUBMIT_FORM) {
         if (onSubmit) await onSubmit()
-        remaining = remaining.filter((item) => item.key !== openedKey)
+        // 드라이런은 등록 버튼을 누르지 않으므로 네이버 목록이 그대로 유지된다.
+        // 여기서 무조건 지우면 현실에 없는 동작을 인코딩해 결함을 가린다.
+        if (payload.dryRun !== true) remaining = remaining.filter((item) => item.key !== openedKey)
         return ok({
           submitted: payload.dryRun !== true,
           dryRun: payload.dryRun === true,
@@ -149,7 +152,8 @@ describe('createOrchestrator.run', () => {
     expect(result.ok).toBe(true)
     expect(result.value.counts).toEqual({ submitted: 0, dryRun: 3, skipped: 0, failed: 0 })
     expect(result.value.phase).toBe(RUN_PHASE.DONE)
-    expect(fake.remainingCount()).toBe(0)
+    // 드라이런은 등록하지 않으므로 목록이 그대로 남는다. 그래도 3건을 각각 한 번씩 미리봐야 한다.
+    expect(fake.remainingCount()).toBe(3)
   })
 
   test('드라이런을 끄면 실제 등록으로 집계한다', async () => {
@@ -169,7 +173,30 @@ describe('createOrchestrator.run', () => {
     const result = await orchestrator.run({ runId: 'run-3', settings })
 
     expect(result.value.completed).toBe(2)
-    expect(fake.remainingCount()).toBe(1)
+    // 드라이런이라 목록은 줄지 않는다. 상한에 걸려 멈추는지만 본다.
+    expect(fake.remainingCount()).toBe(3)
+  })
+
+  test('실제 등록이면 처리한 항목이 목록에서 사라진다', async () => {
+    const settings = mergeSettings({ maxItemsPerRun: 5, dryRun: false })
+    const { orchestrator, fake } = buildOrchestrator({ messagingOptions: { items: threeItems } })
+
+    await orchestrator.run({ runId: 'run-3b', settings })
+
+    expect(fake.remainingCount()).toBe(0)
+  })
+
+  test('드라이런이 같은 항목을 반복하지 않고 목록 전체를 미리본다', async () => {
+    // 등록하지 않으므로 목록이 그대로인데, 건너뛰기 기준이 "실패"뿐이면
+    // 1번 항목만 maxItemsPerRun 번 반복하고 나머지를 못 본다.
+    const settings = mergeSettings({ maxItemsPerRun: 10, dryRun: true })
+    const { orchestrator } = buildOrchestrator({ messagingOptions: { items: threeItems } })
+
+    const result = await orchestrator.run({ runId: 'run-3c', settings })
+
+    expect(result.value.counts.dryRun).toBe(3)
+    const 미리본상품 = result.value.recent.map((entry) => entry.productName)
+    expect(new Set(미리본상품).size).toBe(3)
   })
 
   test('건 사이에 설정된 지연을 넣는다', async () => {
@@ -277,10 +304,25 @@ describe('createOrchestrator.run', () => {
     expect(store.snapshot().get(STORAGE_KEY.RUN_STATE).phase).toBe(RUN_PHASE.FAILED)
   })
 
-  test('목록으로 돌아가지 못하면 실패 상태로 끝낸다', async () => {
+  test('목록 탭이 그대로면 새로고침하지 않는다', async () => {
+    // 폼은 별도 창으로 열리므로 목록 탭은 대개 그대로다.
+    // 매번 새로고침하면 더보기로 펼친 항목이 접히고 로드 비용만 든다.
+    const settings = mergeSettings({ maxItemsPerRun: 2, dryRun: true })
+    const { orchestrator, fake } = buildOrchestrator({ messagingOptions: { items: threeItems } })
+
+    await orchestrator.run({ runId: 'run-10a', settings })
+
+    expect(fake.messaging.navigateTab).not.toHaveBeenCalled()
+  })
+
+  test('목록 탭이 딴 데로 갔는데 되돌리지 못하면 실패 상태로 끝낸다', async () => {
     const settings = mergeSettings({ maxItemsPerRun: 5, dryRun: true })
     const { orchestrator, store } = buildOrchestrator({
-      messagingOptions: { items: threeItems, navigateFailure: '네트워크 오류' },
+      messagingOptions: {
+        items: threeItems,
+        navigateFailure: '네트워크 오류',
+        listTabUrl: 'https://shopping.naver.com/other/page',
+      },
     })
 
     await orchestrator.run({ runId: 'run-10', settings })

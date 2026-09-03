@@ -101,15 +101,18 @@ describe('openReviewForm', () => {
     expect(handler).toHaveBeenCalledTimes(1)
   })
 
-  test('key 를 못 찾으면 index 로 폴백한다', () => {
+  test('key 를 못 찾으면 위치로 추측하지 않고 실패한다', () => {
+    // 목록은 등록·더보기 접힘 등으로 수시로 바뀐다. 같은 위치가 다른 상품을 가리키면
+    // A 상품용으로 만든 본문이 B 상품 폼에 입력된다.
     document.body.innerHTML = `<ul>${row('사과', '농장', '리뷰 쓰기', 'btn-a')}${row('텀블러', '리빙샵', '리뷰 쓰기', 'btn-b')}</ul>`
     const handler = vi.fn()
     document.getElementById('btn-b').addEventListener('click', handler)
 
     const result = openReviewForm({ key: 'name:없는상품', index: 1 })
 
-    expect(result.ok).toBe(true)
-    expect(handler).toHaveBeenCalledTimes(1)
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain('목록이 바뀌어')
+    expect(handler).not.toHaveBeenCalled()
   })
 
   test('남은 항목 수를 함께 알려준다', () => {

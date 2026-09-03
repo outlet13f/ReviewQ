@@ -80,8 +80,9 @@ const HANDLERS = Object.freeze({
 })
 
 const dispatch = async (message) => {
-  const handler = HANDLERS[message?.type]
-  if (!handler) return err(`알 수 없는 메시지 타입: ${message?.type}`)
+  const type = message?.type
+  const handler = typeof type === 'string' && Object.hasOwn(HANDLERS, type) ? HANDLERS[type] : null
+  if (!handler) return err(`알 수 없는 메시지 타입: ${type}`)
   try {
     return await handler(message.payload)
   } catch (cause) {
@@ -92,7 +93,8 @@ const dispatch = async (message) => {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message?.type || !(message.type in HANDLERS)) return false
+  // `in` 은 프로토타입 체인까지 본다. 자체 속성만 인정한다.
+  if (typeof message?.type !== 'string' || !Object.hasOwn(HANDLERS, message.type)) return false
   dispatch(message).then((result) => sendResponse(toWire(result)))
   return true
 })

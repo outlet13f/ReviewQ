@@ -72,13 +72,29 @@ const submitAndConfirm = async ({ messaging, log }, formTabId, timeout) => {
   return registered
 }
 
-/** 드라이런: 등록 버튼 상태만 확인하고 누르지 않는다. */
+/**
+ * 드라이런: 등록 버튼 상태만 확인하고 누르지 않는다.
+ *
+ * 미리보기가 실패하면 **실패로 보고해야 한다.** 드라이런의 목적이 바로 이런 문제를
+ * 실전 전에 잡는 것인데, 성공으로 보고하면 사용자가 셀렉터가 맞다고 오판하고
+ * 드라이런을 꺼서 첫 실전 실행에서 전건 실패한다.
+ */
 const previewSubmit = async ({ messaging, log }, formTabId, item, text, formKey) => {
   const preview = await messaging.sendToTab(formTabId, MSG.SUBMIT_FORM, { dryRun: true })
-  for (const warning of preview.ok ? (preview.value.warnings ?? []) : []) {
-    log.warn(`[${item.productName}] ${warning}`)
-  }
-  return Object.freeze({ status: ITEM_STATUS.DRY_RUN, message: '드라이런 - 등록하지 않음', text, formKey })
+  if (!preview.ok) return failure(`드라이런 확인 실패: ${preview.error}`, { text, formKey })
+
+  const warnings = preview.value.warnings ?? []
+  for (const warning of warnings) log.warn(`[${item.productName}] ${warning}`)
+
+  return Object.freeze({
+    status: ITEM_STATUS.DRY_RUN,
+    message:
+      warnings.length > 0
+        ? `드라이런 - 등록하지 않음 (경고 ${warnings.length}건: ${warnings[0]})`
+        : '드라이런 - 등록하지 않음',
+    text,
+    formKey,
+  })
 }
 
 /** 폼 URL 의 productOrderNos — 목록 DOM 에 없는 항목 고유 식별자. */

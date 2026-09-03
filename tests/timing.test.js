@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from 'vitest'
-import { LIMITS } from '../src/shared/constants.js'
+import { LIMITS, MAX_FILL_TIMEOUT_MS } from '../src/shared/constants.js'
 import { mergeSettings } from '../src/shared/settings.js'
 import { estimateTypingMs, fillFormTimeoutMs } from '../src/shared/timing.js'
 
@@ -92,7 +92,23 @@ describe('fillFormTimeoutMs', () => {
 
     const timeout = fillFormTimeoutMs({ textLength: 100000, settings })
 
-    expect(timeout).toBe(LIMITS.MAX_FILL_TIMEOUT_MS)
+    expect(timeout).toBe(MAX_FILL_TIMEOUT_MS)
+  })
+
+  test('검증기가 허용하는 최악의 조합도 상한 안에 들어온다', () => {
+    // 상한을 따로 두면 "검증기는 통과시키는데 타임아웃은 못 기다리는" 모순이 생긴다.
+    // 그러면 background 가 타이핑 도중 항목을 실패 처리하고 폼 창을 닫아 버린다.
+    const settings = mergeSettings({
+      humanTyping: true,
+      minReviewLength: LIMITS.MAX_REVIEW_LENGTH,
+      delayMs: { typingChar: [LIMITS.MAX_TYPING_DELAY_MS, LIMITS.MAX_TYPING_DELAY_MS] },
+    })
+
+    const needed = fillFormTimeoutMs({ textLength: LIMITS.MAX_REVIEW_LENGTH, settings })
+    const typing = estimateTypingMs({ textLength: LIMITS.MAX_REVIEW_LENGTH, settings })
+
+    expect(needed).toBeGreaterThanOrEqual(typing)
+    expect(needed).toBeLessThanOrEqual(MAX_FILL_TIMEOUT_MS)
   })
 
   test('반환값은 정수 밀리초다', () => {

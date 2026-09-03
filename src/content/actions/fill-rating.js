@@ -73,14 +73,19 @@ const byRadioInput = (root, rating) => {
   const group = preferGroupOfFive(radios, (radio) => radio.getAttribute('name'))
   if (group.length === 0) return null
 
+  // 점수 근거(value / 텍스트 / aria-label) 없이 위치로 고르면 안 된다.
+  // 네이버는 5,4,3,2,1 내림차순이라 위치 기반은 정반대를 누른다.
   const byValue = group.find((radio) => Number.parseInt(radio.value, 10) === rating)
-  const target = byValue ?? group[rating - 1]
+  const target = byValue ?? pickByScore(group, rating) ?? pickByScore(group.map(labelFor).filter(Boolean), rating)
   if (!target) return null
 
-  humanClick(isVisible(target) ? target : (labelFor(target) ?? target))
-  if (target.checked !== true) forceCheck(target)
+  // pickByScore 가 label 을 돌려줬을 수 있으므로 대응하는 input 을 되짚는다.
+  const radio = target.tagName === 'LABEL' ? (group.find((r) => labelFor(r) === target) ?? target) : target
 
-  return { strategy: 'radio-input', verified: target.checked === true }
+  humanClick(isVisible(radio) ? radio : (labelFor(radio) ?? radio))
+  if (radio.checked !== true) forceCheck(radio)
+
+  return { strategy: 'radio-input', verified: radio.checked === true }
 }
 
 /** 전략 2: role=radio 위젯. */
@@ -91,15 +96,15 @@ const byRoleRadio = (root, rating) => {
   // radiogroup 요소 자체를 키로 쓴다. aria-label 은 실제 페이지에서 비어 있다.
   const group = preferGroupOfFive(items, (item) => item.closest('[role="radiogroup"]'))
 
-  // 점수 텍스트로 고르는 것이 우선. 위치는 순서를 알 수 없어 마지막 수단이다.
-  const target = pickByScore(group, rating) ?? group[rating - 1]
+  // 점수 텍스트/라벨로만 고른다. 순서를 알 수 없는 위치 기반은 정반대를 누를 수 있다.
+  const target = pickByScore(group, rating)
   if (!target) return null
 
   humanClick(target)
   return {
     strategy: 'role-radio',
     verified: target.getAttribute('aria-checked') === 'true',
-    matchedByScore: pickByScore(group, rating) !== null,
+    matchedByScore: true,
   }
 }
 
@@ -118,8 +123,9 @@ const byStarContainer = (root, rating) => {
   const container = findStarContainer(root)
   if (!container) return null
 
+  // 별 아이콘은 텍스트가 없는 경우가 많다. 근거가 없으면 위치로 찍지 않는다.
   const children = [...container.children].filter(isVisible)
-  const target = pickByScore(children, rating) ?? children[rating - 1]
+  const target = pickByScore(children, rating)
   if (!target) return null
 
   humanClick(target)

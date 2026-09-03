@@ -119,13 +119,28 @@ describe('fillSurveys — 별점에 맞춘 선택', () => {
     expect(ratingClick).not.toHaveBeenCalled()
   })
 
-  test('선택지 개수가 달라도 비율로 고른다', () => {
-    document.body.innerHTML = survey('만족도', ['1', '2', '3', '4'])
+  test('숫자 근거가 있으면 선택지 개수가 달라도 비율로 고른다', () => {
+    // data-value 로 척도를 알 수 있는 경우다. 위치 추측이 아니다.
+    document.body.innerHTML = `
+      <div class="evaluation_grade_rating" role="radiogroup" data-survey="만족도">
+        ${[1, 2, 3, 4]
+          .map((value, index) => `<a role="radio" aria-checked="false" data-value="${value}" data-option="${index}">${value}</a>`)
+          .join('')}
+      </div>`
     trackClicks()
 
     fillSurveys(document.body, 5)
 
     expect(chosen()[0].option).toBe(3)
+  })
+
+  test('뜻도 숫자도 없으면 건너뛰고 그 수를 보고한다', () => {
+    document.body.innerHTML = survey('알수없음', ['가', '나', '다'])
+
+    const result = fillSurveys(document.body, 5)
+
+    expect(result.value.answered).toBe(0)
+    expect(result.value.skipped).toBe(1)
   })
 
   test('처리한 설문 수를 보고한다', () => {
